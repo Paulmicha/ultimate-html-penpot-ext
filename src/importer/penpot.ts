@@ -381,8 +381,17 @@ function textFitScale(node: SceneNode): number {
 
 function applyTextSizing(text: Text, style: NonNullable<SceneNode["textStyle"]>, scale: number): void {
   const baseFontSize = Math.max(1, style.fontSize);
-  const effectiveScale = Math.max(0.01, scale);
-  text.fontSize = String(Math.max(1, baseFontSize * effectiveScale));
+  let effectiveScale = Math.max(0.01, scale);
+  const requestedSize = Math.max(1, baseFontSize * effectiveScale);
+  try {
+    text.fontSize = String(requestedSize);
+  } catch (error) {
+    // Some Penpot hosts reject 1px. Retry only this specific validation
+    // failure, preserving other errors and retaining a nearly invisible size.
+    if (requestedSize !== 1 || !(error instanceof Error) || !error.message.includes("Code: :fontSize")) throw error;
+    text.fontSize = "2";
+    effectiveScale = 2 / baseFontSize;
+  }
   // Scene text styles use Penpot's unitless line-height multiplier. Scale
   // the multiplier inversely so reducing width does not collapse the source
   // line box vertically.

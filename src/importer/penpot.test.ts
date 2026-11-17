@@ -501,6 +501,26 @@ describe("Penpot importer", () => {
     expect(progress).toHaveBeenLastCalledWith(2, 2, "Creating Desktop");
   });
 
+  it("imports text when Penpot rejects its captured font size", async () => {
+    const input = scene("Mobile");
+    input.nodes[1].textStyle!.fontSize = 1;
+    const host = (globalThis as typeof globalThis & { penpot: { createText: ReturnType<typeof vi.fn> } }).penpot;
+    host.createText.mockImplementationOnce((characters: string) => {
+      const shape = Object.assign(fakeShape("text"), { characters, fills: [], growType: "fixed" });
+      let size = "16";
+      Object.defineProperty(shape, "fontSize", {
+        get: () => size,
+        set: (value: string) => {
+          if (value === "1") throw new Error(`[PENPOT PLUGIN] Value not valid: ${value}. Code: :fontSize`);
+          size = value;
+        }
+      });
+      return shape;
+    });
+    const result = await importScenes([input], { isCancelled: () => false, onProgress: vi.fn() });
+    expect((result[0] as unknown as FakeShape).children?.[0]).toMatchObject({ characters: "Hello", fontSize: "2" });
+  });
+
   it.each(["\u00a0", "\u00a0 \u00a0", "\u202f", "\t "])("imports whitespace text %j with a valid layer name and unchanged characters", async (characters) => {
     const input = scene();
     const node = input.nodes[1];
